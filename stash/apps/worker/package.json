@@ -1,0 +1,29 @@
+{
+  "name": "worker",
+  "version": "1.2.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^18.0.1",
+    "grammy": "^1.46.0",
+    "node-id3": "^0.2.9",
+    "teleproto": "^1.229.0",
+    "ws": "^8.21.3",
+    "shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^20",
+    "@types/ws": "^8.5.13"
+  }
+}
