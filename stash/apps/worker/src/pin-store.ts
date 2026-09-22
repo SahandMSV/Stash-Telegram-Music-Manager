@@ -1,37 +1,40 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
 import { randomInt } from "node:crypto";
 import { encrypt, decrypt } from "./crypto.js";
 import { config } from "./config.js";
+import { getDb } from "./mongo.js";
 
-const PIN_FILE = resolve(process.cwd(), "data/pin.enc");
+type PinDoc = { _id: "pin"; value: string };
 
-function ensureDataDir(): void {
-  const dir = dirname(PIN_FILE);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+async function pinCollection() {
+  const db = await getDb();
+  return db.collection<PinDoc>("pin_store");
 }
 
-export function hasPin(): boolean {
-  return existsSync(PIN_FILE);
+export async function hasPin(): Promise<boolean> {
+  const col = await pinCollection();
+  return (await col.findOne({ _id: "pin" })) !== null;
 }
 
-export function generateAndStorePin(): string {
-  ensureDataDir();
+export async function generateAndStorePin(): Promise<string> {
+  const col = await pinCollection();
   const pin = randomInt(100000, 999999).toString();
   const key = config.getRequiredSessionKey();
-  writeFileSync(PIN_FILE, encrypt(pin, key), "utf8");
+  await col.updateOne(
+    { _id: "pin" },
+    { $set: { value: encrypt(pin, key) } },
+    { upsert: true },
+  );
   return pin;
 }
 
-export function verifyPin(candidate: string): boolean {
-  if (!hasPin()) return false;
+export async function verifyPin(candidate: string): Promise<boolean> {
+  const col = await pinCollection();
+  const doc = await col.findOne({ _id: "pin" });
+  if (!doc) return false;
   const key = config.getRequiredSessionKey();
-  const stored = decrypt(readFileSync(PIN_FILE, "utf8"), key);
-  return stored === candidate;
+  return decrypt(doc.value, key) === candidate;
 }
 
-export function resetPin(): string {
+export async function resetPin(): Promise<string> {
   return generateAndStorePin();
 }

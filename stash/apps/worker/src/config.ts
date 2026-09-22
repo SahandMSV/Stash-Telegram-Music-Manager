@@ -18,4 +18,6 @@ export const config = {
   workerPort: Number(process.env.WORKER_PORT ?? 4001),
   sessionEncryptionKey: process.env.WORKER_SESSION_ENCRYPTION_KEY ?? "",
   getRequiredSessionKey: () => required("WORKER_SESSION_ENCRYPTION_KEY"),
+  mongoUri: process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017",
+  mongoDbName: process.env.MONGODB_DB_NAME ?? "stash_worker",
 };

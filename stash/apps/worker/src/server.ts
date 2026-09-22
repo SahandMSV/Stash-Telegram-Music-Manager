@@ -11,6 +11,13 @@ import {
   hasPin,
   resetPin,
 } from "./pin-store.js";
+import {
+  getAuthStatus,
+  startPhoneAuth,
+  submitCode,
+  submitPassword,
+  logout,
+} from "./telegram-client.js";
 
 function isLocalhost(req: IncomingMessage): boolean {
   const remote = req.socket.remoteAddress ?? "";
@@ -40,14 +47,14 @@ async function handleRequest(
   const url = req.url ?? "";
 
   if (req.method === "GET" && url === "/health") {
-    json(res, 200, getHealth());
+    json(res, 200, { ...getHealth(), auth: await getAuthStatus() });
     return;
   }
 
   if (req.method === "POST" && url === "/internal/verify-pin") {
     const body = await readBody(req);
     const { pin } = JSON.parse(body) as { pin: string };
-    json(res, 200, { valid: verifyPin(pin) });
+    json(res, 200, { valid: await verifyPin(pin) });
     return;
   }
 
@@ -56,11 +63,11 @@ async function handleRequest(
       json(res, 403, { error: "localhost only" });
       return;
     }
-    if (hasPin()) {
+    if (await hasPin()) {
       json(res, 409, { error: "pin already exists, use reset" });
       return;
     }
-    const pin = generateAndStorePin();
+    const pin = await generateAndStorePin();
     json(res, 200, { pin });
     return;
   }
@@ -70,8 +77,89 @@ async function handleRequest(
       json(res, 403, { error: "localhost only" });
       return;
     }
-    const pin = resetPin();
+    const pin = await resetPin();
     json(res, 200, { pin });
+    return;
+  }
+
+  // Auth endpoints (localhost only)
+
+  if (req.method === "GET" && url === "/internal/auth/status") {
+    if (!isLocalhost(req)) {
+      json(res, 403, { error: "localhost only" });
+      return;
+    }
+    json(res, 200, await getAuthStatus());
+    return;
+  }
+
+  if (req.method === "POST" && url === "/internal/auth/start") {
+    if (!isLocalhost(req)) {
+      json(res, 403, { error: "localhost only" });
+      return;
+    }
+    try {
+      const body = await readBody(req);
+      const { phone } = JSON.parse(body) as { phone: string };
+      const result = await startPhoneAuth(phone);
+      json(res, 200, result);
+    } catch (err) {
+      json(res, 400, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url === "/internal/auth/code") {
+    if (!isLocalhost(req)) {
+      json(res, 403, { error: "localhost only" });
+      return;
+    }
+    try {
+      const body = await readBody(req);
+      const { code } = JSON.parse(body) as { code: string };
+      const result = await submitCode(code);
+      json(res, 200, result);
+    } catch (err) {
+      json(res, 400, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url === "/internal/auth/password") {
+    if (!isLocalhost(req)) {
+      json(res, 403, { error: "localhost only" });
+      return;
+    }
+    try {
+      const body = await readBody(req);
+      const { password } = JSON.parse(body) as { password: string };
+      const result = await submitPassword(password);
+      json(res, 200, result);
+    } catch (err) {
+      json(res, 400, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return;
+  }
+
+  if (req.method === "POST" && url === "/internal/auth/logout") {
+    if (!isLocalhost(req)) {
+      json(res, 403, { error: "localhost only" });
+      return;
+    }
+    try {
+      await logout();
+      json(res, 200, { ok: true });
+    } catch (err) {
+      json(res, 500, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     return;
   }
 
